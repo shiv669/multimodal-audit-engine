@@ -701,13 +701,162 @@ Returns to videoIndexNode in state
 
 ---
 
+## Main Entry Point (main.py)
+
+### Purpose
+
+The `main.py` file serves as the entry point to run the entire compliance audit pipeline. It simulates a user request to audit a video, manages the workflow execution, and displays human-readable results.
+
+### Architecture
+
+**Function: `run_cli_simulation()`**
+
+This function orchestrates a complete audit session:
+
+1. **Generate Session ID**
+   - Creates unique UUID for tracking this audit run
+   - Used for logging and debugging
+
+2. **Prepare Input State**
+   ```python
+   initial_inputs = {
+       "video_url": "https://youtu.be/dT7S75eYhcQ",     # YouTube video to audit
+       "video_id": f"vid_{session_id[:8]}",             # Unique identifier
+       "compliance_result": [],                          # Will be populated by audit
+       "errors": []                                      # Will accumulate errors
+   }
+   ```
+
+3. **Invoke Workflow**
+   - Calls `app.invoke(initial_inputs)` from workflow.py
+   - LangGraph executes the DAG: indexer → auditor → END
+   - Returns `final_state` with all results
+
+4. **Process Results**
+   - Extract audit status (pass/fail)
+   - Extract violations from `compliance_result` list
+   - Display severity, category, and description for each violation
+   - Show final audit report
+
+### Execution Flow
+
+```
+main.py runs
+    ↓
+run_cli_simulation()
+    ↓
+Generate session ID + input state
+    ↓
+app.invoke(initial_inputs)  → Calls LangGraph workflow
+    ├─→ videoIndexNode execution
+    │   ├─ Download video from YouTube
+    │   ├─ Extract transcript via Whisper
+    │   ├─ Extract OCR text from frames
+    │   └─ Return cleaned data
+    │
+    ├─→ audit_content_node execution
+    │   ├─ Initialize Mistral LLM + embeddings
+    │   ├─ Retrieve compliance rules via FAISS
+    │   ├─ Perform RAG-based audit
+    │   ├─ Detect violations
+    │   └─ Generate report
+    │
+    └─→ Return final_state
+    ↓
+Display results
+    ├─ Video ID
+    ├─ Audit status (Pass/Fail)
+    ├─ Violations list (if any)
+    └─ Final audit report summary
+```
+
+### Output Example
+
+```
+workflow execution is completed
+
+compliance audit report
+video id: vid_a1b2c3d4
+final status: fail
+
+violations detected
+- [critical] claim validation: Company claims product cures disease without FDA approval
+- [high] medical claim: Statement contradicts published medical guidelines
+- [medium] pricing claim: Discount percentage doesn't match advertised value
+
+final summary
+Found 3 compliance violations. Recommend content review before publishing.
+```
+
+### State Variables Used
+
+**Input State** (passed to workflow):
+- `video_url`: YouTube URL
+- `video_id`: Tracking identifier
+- `compliance_result`: Initially empty (populated by audit)
+- `errors`: Initially empty (accumulates errors)
+
+**Output State** (returned from workflow):
+- `video_id`: Same as input
+- `audit_result`: "pass" or "fail"
+- `compliance_result`: List of detected violations
+- `audit_report`: Human-readable summary
+- `video_transcript`: Extracted speech
+- `ocr_text`: Extracted screen text
+- `errors`: Any errors that occurred
+
+### Error Handling
+
+If workflow execution fails:
+```python
+except Exception as e:
+    logger.error(f"workflow execution failed {str(e)}")
+    raise e
+```
+
+The exception is logged and re-raised so the user knows execution failed.
+
+### Running the Pipeline
+
+**Execute from command line**:
+```bash
+python main.py
+```
+
+This will:
+1. Load environment variables from .env
+2. Run the CLI simulation with the hardcoded YouTube URL
+3. Display audit results in formatted text
+4. Exit with success if audit completes (even if violations found)
+5. Exit with error if pipeline fails
+
+### Future Enhancements
+
+1. **Command-line arguments**: Accept video URL as parameter
+   ```bash
+   python main.py --url "https://youtube.com/watch?v=..."
+   ```
+
+2. **Batch mode**: Process multiple videos from a CSV file
+
+3. **Output formats**: Export results as JSON, PDF, or HTML reports
+
+4. **Configuration file**: Load settings from config.yaml instead of hardcoding
+
+5. **REST API wrapper**: Expose as FastAPI endpoint for web integration
+
+6. **Interactive mode**: Ask user for video URL at runtime
+
+---
+
 ## Next Steps
 1. ✅ Implement VideoIndexerService (DONE)
-2. Test VideoIndexerService with sample YouTube videos
-3. Create sample compliance PDFs and populate backend/data/
-4. Test index_documents.py to build FAISS vector store
-5. End-to-end test: video → extraction → audit → report
-6. AWS integration for production deployment
+2. ✅ Create and verify main.py entry point (DONE)
+3. Test VideoIndexerService with sample YouTube videos
+4. Create sample compliance PDFs and populate backend/data/
+5. Test index_documents.py to build FAISS vector store
+6. End-to-end test: video → extraction → audit → report
+7. AWS integration for production deployment
 
 ## Key Principles
 - Multimodality first in every design decision
