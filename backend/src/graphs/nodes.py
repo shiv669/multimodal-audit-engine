@@ -4,14 +4,14 @@ import logging
 import re
 from typing import List, Dict, Any
 
-from langchain_mistralai import ChatMistral
-from langchain_mistralai.embeddings import MistralEmbeddings
+from langchain_mistralai import ChatMistralAI
+from langchain_mistralai.embeddings import MistralAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from backend.src.graphs.state import complianceIssue, videoState
-from backend.src.services.video_indexer import VideoIndexerService
+from backend.src.services.video_indexer import videoIndexerService
 
 logger = logging.getLogger("multimodal-audit-engine")
 logging.basicConfig(level=logging.INFO)
@@ -61,7 +61,7 @@ def videoIndexNode(state: videoState) -> Dict[str, Any]:
     
 #node 2 : compliance auditor
 
-def audio_content_node(state: videoState) -> Dict[str, Any]:
+def audit_content_node(state: videoState) -> Dict[str, Any]:
     '''
     performs rag to audit the content
     '''
@@ -77,11 +77,16 @@ def audio_content_node(state: videoState) -> Dict[str, Any]:
     
 # initialise clients
 
-    llm = ChatMistral(model="mistral-small", api_key=os.getenv("MISTRAL_API_KEY"))
+    llm = ChatMistralAI(model="mistral-small", api_key=os.getenv("MISTRAL_API_KEY"))
 
-    embeddings = MistralEmbeddings(api_key=os.getenv("MISTRAL_API_KEY"))
+    embeddings = MistralAIEmbeddings(api_key=os.getenv("MISTRAL_API_KEY"))
 
-    vector_store = FAISS.from_documents([], embeddings)
+    try:
+        vector_store = FAISS.load_local("backend/data/faiss_index", embeddings)
+        logger.info("loader vector store from disk")
+    except Exception as e:
+        logger.warning(f"vector store not found, creating empty: {str(e)}")
+        vector_store = FAISS.from_documents([], embeddings)
 
     # rag retrival
     ocr_text = state.get("ocr_text", [])
@@ -97,10 +102,10 @@ def audio_content_node(state: videoState) -> Dict[str, Any]:
             2. identify any kind of violations of the rules
             return type: strictly return json in the following format: {{
                 {{
-                    "audit_result": [ 
+                    "compliance_result": [ 
                         {{
                             "category" : "claim validation",
-                            "severity" : "critical"
+                            "severity" : "critical",
                             "description" : "explanation of the violation"
                         }}
                         ],

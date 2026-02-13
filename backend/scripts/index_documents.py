@@ -7,7 +7,7 @@ load_dotenv(override=True)
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from langchain_mistralai.embeddings import MistralEmbeddings
+from langchain_mistralai.embeddings import MistralAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 #setup logging
@@ -42,17 +42,17 @@ def index_logs():
     try:
         mistral_key = os.getenv("MISTRAL_API_KEY")
         if mistral_key:
-            embeddings = MistralEmbeddings(api_key=mistral_key)
+            embeddings = MistralAIEmbeddings(api_key=mistral_key)
             logger.info("Mistral API endpoint validated and initialsed successfully")
     except Exception as e:
         logger.error(f"Failed to validate Mistral API endpoint: {str(e)}")
     
     # validate FAISS vector store setup
-    try:
+    '''try:
         vector_store = FAISS.from_documents([], embeddings)
         logger.info("FAISS vector store configured successfully")
     except Exception as e:
-        logger.error(f"Failed to configure FAISS: {str(e)}") 
+        logger.error(f"Failed to configure FAISS: {str(e)}") '''
 
 
     #find pdf files 
@@ -90,6 +90,8 @@ def index_logs():
     if all_splits:
         logger.info(f"uploading {len(all_splits)} to mistral ai embeddings")
         try:
+            vector_store = FAISS.from_documents(all_splits, embeddings)
+            logger.info("FAISS vector store created successfully")
             vector_store.add_documents(documents = all_splits)
             logger.info("="*60)
             logger.info("indexing completed knowledge base ready !")
@@ -100,6 +102,16 @@ def index_logs():
 
     else:
         logger.warning("no documents were to be found")
+
+
+    try:
+        vector_store.save_local("backend/data/faiss_index")
+        logger.info("vector store saved to disk at backend/data/faiss_index")
+    except Exception as e:
+        logger.error(f"failed to save vector store: {str(e)}")
+
+
+
 
 if __name__ == "__main__":
     index_logs()
