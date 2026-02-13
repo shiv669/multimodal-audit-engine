@@ -4,14 +4,17 @@ A system that scans video content across multiple modalities—speech, on-screen
 
 ## Tech Stack
 
+### Current (MVP - Mistral + LangSmith)
 - **Framework**: LangChain for AI/LLM orchestration
 - **API**: FastAPI + Uvicorn
-- **AI Model**: Mistral AI
-- **Search**: OpenSearch
+- **AI Model**: Mistral AI (free tier)
+- **Debugging**: LangSmith for workflow tracing
 - **Video Processing**: yt-dlp
-- **Observability**: OpenTelemetry
-- **AWS**: boto3 integration
 - **Environment**: Python 3.13+
+
+### Planned (Future Phases)
+- **Search**: OpenSearch for semantic indexing
+- **AWS**: S3, Lambda integration for production
 
 ## Features
 
@@ -24,25 +27,28 @@ A system that scans video content across multiple modalities—speech, on-screen
 
 ## Getting Started
 
-### Installation
+### Quick Start
 
+1. **Install dependencies**:
 ```bash
-# Install dependencies
-pip install boto3 langchain-core langchain-community langchain-mistralai opensearch-py yt-dlp pypdf langchain-text-splitters tiktoken langsmith opentelemetry-sdk opentelemetry-instrumentation-fastapi --user
+pip install langchain-core langchain-community langchain-mistralai yt-dlp pypdf langchain-text-splitters tiktoken langsmith python-dotenv fastapi uvicorn --user
 ```
 
-### Environment Setup
+2. **Get Free API Keys** (no credit card needed):
+   - **Mistral AI**: Sign up at [console.mistral.ai](https://console.mistral.ai) → Get API key
+   - **LangSmith**: Sign up at [smith.langchain.com](https://smith.langchain.com) → Get API key
 
-1. Copy `.env.example` to `.env`:
+3. **Set up `.env`**:
 ```bash
 cp .env.example .env
 ```
+Then edit `.env` and add your API keys:
+```env
+MISTRAL_API_KEY=your_key_from_console.mistral.ai
+LANGSMITH_API_KEY=your_key_from_smith.langchain.com
+```
 
-2. Update `.env` with your actual credentials:
-   - **MISTRAL_API_KEY**: Get from [console.mistral.ai](https://console.mistral.ai)
-   - **LANGSMITH_API_KEY**: Get from [smith.langchain.com](https://smith.langchain.com)
-   - **OPENSEARCH_***: Configure based on your OpenSearch instance
-   - **AWS_***: Only needed if using AWS services
+4. **See [FREE_SETUP_GUIDE.md](FREE_SETUP_GUIDE.md) for detailed step-by-step instructions**
 
 ### Running
 

@@ -12,16 +12,19 @@ Multimodal-audit-engine scans video content across multiple streams—speech, on
 - Basic project structure in place (main.py, pyproject.toml, README.md)
 - Backend dependencies installed for LangChain-based AI pipeline
 
-### Tech Stack
+### Tech Stack (Current - MVP Phase)
 - **LangChain**: Core framework for AI/LLM workflows (langchain-core, langchain-community, langchain-mistralai)
-- **AI Model**: Mistral AI integration for language understanding
-- **Search**: OpenSearch for semantic search and indexing
+- **AI Model**: Mistral AI for language understanding and claim analysis
 - **Data Processing**: yt-dlp for video download, pypdf for document handling, langchain-text-splitters
 - **API**: FastAPI with Uvicorn for backend server
-- **Observability**: OpenTelemetry for distributed tracing
-- **AWS Integration**: boto3 for AWS services
+- **Debugging**: LangSmith for workflow tracing and debugging
 - **Tokenization**: tiktoken for token counting
-- **Development**: python-dotenv for environment management, langsmith for debugging
+- **Development**: python-dotenv for environment management
+
+### Tech Stack (Planned for Future Phases)
+- **Search**: OpenSearch for semantic search and indexing
+- **AWS Integration**: boto3, S3, Lambda for production deployment
+- **Observability**: OpenTelemetry for distributed tracing
 
 ### Core Conceptual Understanding
 - Violations can originate from multiple modalities or inconsistencies between them
