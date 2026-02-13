@@ -31,6 +31,19 @@ A system that scans video content across multiple modalities—speech, on-screen
 pip install boto3 langchain-core langchain-community langchain-mistralai opensearch-py yt-dlp pypdf langchain-text-splitters tiktoken langsmith opentelemetry-sdk opentelemetry-instrumentation-fastapi --user
 ```
 
+### Environment Setup
+
+1. Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
+```
+
+2. Update `.env` with your actual credentials:
+   - **MISTRAL_API_KEY**: Get from [console.mistral.ai](https://console.mistral.ai)
+   - **LANGSMITH_API_KEY**: Get from [smith.langchain.com](https://smith.langchain.com)
+   - **OPENSEARCH_***: Configure based on your OpenSearch instance
+   - **AWS_***: Only needed if using AWS services
+
 ### Running
 
 ```bash
