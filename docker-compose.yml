@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  multimodal-audit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: multimodal-audit-engine:latest
+    container_name: multimodal-audit-engine
+    environment:
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount PDFs directory
+      - ./backend/data:/app/backend/data
+      # Mount logs directory
+      - ./logs:/app/logs
+    ports:
+      # For future FastAPI endpoint
+      - "8000:8000"
+    restart: no
+    stdin_open: true
+    tty: true
+    networks:
+      - audit-network
+
+  # Future: Redis for job queue
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: audit-redis
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - audit-network
+
+networks:
+  audit-network:
+    driver: bridge
