@@ -404,6 +404,106 @@ This design naturally supports:
         └──────────────┘
 ```
 
+---
+
+## PDF Indexing Script (index_documents.py)
+
+### Purpose
+
+Pre-processes compliance guidelines from PDF files and converts them into vector embeddings for similarity search during the audit process. These indexed guidelines are used in the RAG retrieval step of the auditor node.
+
+### Design & Architecture
+
+**Workflow**:
+```
+PDF Files (compliance guidelines)
+    ↓
+Load PDFs with PyPDFLoader
+    ↓
+Split into chunks (RecursiveCharacterTextSplitter)
+    ↓
+Generate embeddings (Mistral Embeddings API)
+    ↓
+Store in FAISS vector database
+    ↓
+Ready for similarity search queries
+```
+
+### Key Implementation Decisions
+
+1. **Environment Validation (Lines 31-44)**
+   - **Why**: Prevents runtime failures due to missing API keys
+   - Checks `MISTRAL_API_KEY` and `LANGSMITH_API_KEY` before processing
+   - Logs success/warning for each variable
+   - Tests Mistral API connectivity early
+   - Initializes FAISS vector store with empty documents
+
+2. **PDF Discovery (Lines 62-64)**
+   - **Why**: Flexible input handling; supports multiple compliance documents
+   - Searches `backend/data/` folder for all `.pdf` files
+   - Logs found files for user awareness
+   - Allows adding new guidelines without code changes
+
+3. **Chunking Strategy (Lines 77-80)**
+   - **Chunk size: 1000 tokens**
+     - Why: Balances context preservation with vector search relevance
+     - Too small (100): Loses context meaning
+     - Too large (5000): Reduces search precision
+   - **Overlap: 200 tokens**
+     - Why: Preserves semantic continuity across chunks
+     - Ensures related concepts aren't split
+
+4. **Metadata Preservation (Line 83)**
+   - **Why**: Tracks which guideline each chunk came from
+   - Stores filename in `split.metadata["source"]`
+   - Enables audit reports to cite specific guidelines
+
+5. **Accumulation Strategy (Line 85)**
+   - **Why**: Batches all PDFs before uploading
+   - Uses `all_splits.extend()` to flatten chunks from all PDFs
+   - Upload happens OUTSIDE for loop (not after each PDF)
+   - Reason: More efficient; single vector store insertion
+
+6. **Error Handling (Lines 87-88)**
+   - **Why**: Individual PDF errors don't stop entire indexing
+   - Catches and logs per-PDF errors
+   - Continues processing remaining PDFs
+   - Partial indexing is better than complete failure
+
+7. **Batch Upload After Loop (Lines 90-101)**
+   - **Why**: Upload all at once instead of incrementally
+   - Reduces API calls (1 call instead of N calls)
+   - Uses `vector_store.add_documents()` (plural) for batch insert
+   - Logs final indexed chunk count for verification
+
+### Design Decisions Rationale
+
+| Decision | Why | Alternative | Why Not |
+|----------|-----|-------------|---------|
+| FAISS for vector storage | Free, local, fast similarity search | PostgreSQL pgvector | Adds DB dependency, MVP overhead |
+| Mistral embeddings | Same vendor as LLM, free tier | OpenAI embeddings | Requires separate API key, paid |
+| Pre-computed indexing script | One-time setup; fast queries in audit | On-the-fly indexing | Slow during audit, repeated computation |
+| Outside loop upload | Single batch insert | Inside loop upload | N times slower, inefficient |
+| Metadata tracking | Audit trail; cite specific guidelines | No tracking | Audit reports can't reference source |
+
+### Error Scenarios & Recovery
+
+| Scenario | Handling |
+|----------|----------|
+| Missing `MISTRAL_API_KEY` | Logs warning, continues to attempt FAISS setup |
+| Corrupt PDF | Logged and skipped; other PDFs continue processing |
+| FAISS initialization fails | Logs error; script exits with status |
+| API rate limit hit during embeddings | Exception caught, logged, script warns user |
+
+### Future Enhancements
+
+1. **Support other formats**: Docx, TXT, CSV (extend fileglob pattern)
+2. **Scheduled re-indexing**: Update vector store with new guidelines
+3. **Index versioning**: Track which guidelines were indexed when
+4. **Feedback loop**: Update embeddings based on audit results
+
+---
+
 ## Next Steps
 1. Implement transcript extraction module (Whisper integration)
 2. Implement OCR module (Tesseract integration)
