@@ -42,6 +42,9 @@ output/
 *.avi
 *.mov
 *.mkv
+.env
+.env.local
+.env.*.local
 
 # Logs
 *.log
@@ -50,3 +53,7 @@ output/
 *.db
 *.sqlite
 *.sqlite3
+
+# OS
+Thumbs.db
+.DS_Store

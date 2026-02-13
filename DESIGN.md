@@ -10,11 +10,24 @@ Multimodal-audit-engine scans video content across multiple streams—speech, on
 - Python 3.13+ project initialized with `uv` package manager
 - Git repository configured and linked to GitHub remote
 - Basic project structure in place (main.py, pyproject.toml, README.md)
+- Backend dependencies installed for LangChain-based AI pipeline
+
+### Tech Stack
+- **LangChain**: Core framework for AI/LLM workflows (langchain-core, langchain-community, langchain-mistralai)
+- **AI Model**: Mistral AI integration for language understanding
+- **Search**: OpenSearch for semantic search and indexing
+- **Data Processing**: yt-dlp for video download, pypdf for document handling, langchain-text-splitters
+- **API**: FastAPI with Uvicorn for backend server
+- **Observability**: OpenTelemetry for distributed tracing
+- **AWS Integration**: boto3 for AWS services
+- **Tokenization**: tiktoken for token counting
+- **Development**: python-dotenv for environment management, langsmith for debugging
 
 ### Core Conceptual Understanding
 - Violations can originate from multiple modalities or inconsistencies between them
 - Pipeline approach: Ingestion → Extraction → Analysis → Correlation → Reporting
 - Each modality requires specialized analysis (audio transcription, text extraction, visual understanding)
+- Using LangChain to orchestrate multi-step AI workflows for analysis
 
 ### Open Questions
 - How to reliably extract text from dynamic video content?
