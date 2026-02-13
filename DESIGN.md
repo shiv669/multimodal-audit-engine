@@ -195,6 +195,215 @@ The node design allows:
 
 All possible because nodes are isolated, stateful, and communicate only through `videoState`.
 
+---
+
+## LangGraph Workflow Architecture (workflow.py)
+
+### Design Philosophy
+
+The workflow.py file builds a **Directed Acyclic Graph (DAG)** using LangGraph's StateGraph:
+
+```
+Input Video State
+    ↓
+  [INDEXER NODE]  (videoIndexNode)
+    ↓
+  [AUDITOR NODE]  (audit_content_node)
+    ↓
+   Output (Pass/Fail + Report)
+```
+
+This represents a **sequential, state-driven pipeline** where each node:
+1. Receives the complete `videoState`
+2. Performs its work
+3. Returns updated state fields
+4. Passes result to next node
+
+### Workflow Construction
+
+**Step 1: Initialize StateGraph**
+```python
+workflow = StateGraph(videoState)
+```
+- Uses `videoState` TypedDict as the state contract
+- All nodes communicate through this single, typed state object
+- Type safety prevents passing wrong data between nodes
+
+**Step 2: Register Nodes**
+```python
+workflow.add_node("indexer", videoIndexNode)
+workflow.add_node("auditor", audit_content_node)
+```
+- Each node gets a unique name ("indexer", "auditor")
+- Nodes are mapped to their functions (videoIndexNode, audit_content_node)
+- Names used for routing and debugging
+
+**Step 3: Define Entry Point**
+```python
+workflow.set_entry_point("indexer")
+```
+- All executions start at the "indexer" node
+- Reason: Must download and extract video before analysis
+
+**Step 4: Define Edges (Transitions)**
+```python
+workflow.add_edge("indexer", "auditor")
+workflow.add_edge("auditor", END)
+```
+- Edge 1: After indexer finishes → move to auditor
+- Edge 2: After auditor finishes → END (workflow complete)
+- All edges are deterministic (no conditional routing yet)
+
+**Step 5: Compile**
+```python
+app = workflow.compile()
+```
+- Compiles the DAG into an executable object
+- Validates the graph structure
+- Returns callable application that can be invoked with input state
+
+### Key Design Decisions
+
+| Decision | Why | Alternative | Why Not |
+|----------|-----|-------------|---------|
+| Sequential pipeline | Simple, deterministic, easy to debug | Parallel nodes | Adds complexity; can be added later |
+| Single StateGraph | Unified state management | Multiple independent workflows | Would lose context between nodes |
+| Explicit edge routing | Clear data flow | Conditional routing | Can be added when needed |
+| Named nodes | Debugging, logging, tracing | Anonymous nodes | Hard to identify issues |
+| Compile before return | Validates graph at startup | Lazy compilation | Easier to catch errors early |
+
+### Execution Flow
+
+**Input**:
+```python
+{
+    "video_url": "https://youtube.com/watch?v=...",
+    "video_id": "audit_001",
+    # ... other state fields
+}
+```
+
+**Execution**:
+1. LangGraph invokes `videoIndexNode` with full state
+2. videoIndexNode downloads video, extracts data, returns partial state update
+3. LangGraph merges returned fields into state
+4. LangGraph invokes `audit_content_node` with merged state
+5. audit_content_node performs RAG audit, returns violations + report
+6. LangGraph merges results into state
+7. Returns final state to caller (caller can check audit_result, audit_report, errors)
+
+### State Accumulation
+
+LangGraph automatically handles field merging:
+- List fields with `Annotated[List, operator.add]` → accumulate items
+- Regular fields → overwrite with latest value
+
+Example:
+```python
+# Node 1 returns: {"errors": ["error_1"]}
+# Node 2 returns: {"errors": ["error_2"]}
+# Final state:   {"errors": ["error_1", "error_2"]}
+```
+
+### Why This Architecture?
+
+1. **Linear vs Complex**
+   - MVP needs simple, linear flow
+   - Can extend to branching later (conditional edges, parallel paths)
+
+2. **Type Safety**
+   - `videoState` is a TypedDict
+   - IDE auto-completion for state fields
+   - Catches misnamed fields at development time
+
+3. **Statelessness of Nodes**
+   - Each node is a pure function
+   - No shared mutable state across nodes
+   - Easy to test, easy to replace
+
+4. **Observability**
+   - LangGraph logs each node execution
+   - Can trace state changes between nodes
+   - Integrates with LangSmith for monitoring
+
+5. **Resilience**
+   - Errors in one node don't break entire pipeline
+   - All nodes return dicts, never raise exceptions
+   - Errors accumulate in state for final review
+
+### Future Extensibility
+
+This design naturally supports:
+
+1. **Parallel Processing**
+   ```python
+   # Extract transcripts and OCR in parallel
+   workflow.add_node("transcript_extractor", ...)
+   workflow.add_node("ocr_extractor", ...)
+   workflow.add_edge("indexer", "transcript_extractor")
+   workflow.add_edge("indexer", "ocr_extractor")
+   workflow.add_edge(["transcript_extractor", "ocr_extractor"], "auditor")
+   ```
+
+2. **Conditional Routing**
+   ```python
+   workflow.add_conditional_edges(
+       "indexer",
+       should_audit,  # Decision function
+       {True: "auditor", False: END}
+   )
+   ```
+
+3. **Loops (Retries)**
+   ```python
+   workflow.add_edge("auditor", "indexer")  # Re-analyze with different settings
+   ```
+
+4. **Multiple Workflows**
+   - Create different graphs for different use cases
+   - Reuse the same nodes in different arrangements
+
+### Related Files
+
+- **state.py**: Defines `videoState` TypedDict (the state contract)
+- **nodes.py**: Defines `videoIndexNode` and `audit_content_node` (the workers)
+- **workflow.py**: Combines states + nodes into executable graph
+
+### Diagram
+
+```
+┌─────────────────────────────────────┐
+│         INPUT: videoState           │
+│  (video_url, video_id, metadata...) │
+└──────────────┬──────────────────────┘
+               │
+               ↓
+        ┌──────────────┐
+        │   INDEXER    │
+        │ - Download   │
+        │ - Extract    │
+        │   transcripts│
+        │ - Extract OCR│
+        └──────┬───────┘
+               │
+               ↓ (State updated with transcript + ocr_text)
+        ┌──────────────┐
+        │   AUDITOR    │
+        │ - RAG search │
+        │ - LLM audit  │
+        │ - Generate   │
+        │   report     │
+        └──────┬───────┘
+               │
+               ↓ (State updated with audit_result + audit_report + compliance_result)
+        ┌──────────────┐
+        │    OUTPUT    │
+        │ Pass/Fail +  │
+        │ Violations + │
+        │ Report       │
+        └──────────────┘
+```
+
 ## Next Steps
 1. Implement transcript extraction module (Whisper integration)
 2. Implement OCR module (Tesseract integration)
