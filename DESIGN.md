@@ -504,15 +504,210 @@ Ready for similarity search queries
 
 ---
 
+## Video Indexer Service (video_indexer.py)
+
+### Purpose
+
+The `VideoIndexerService` class handles all video processing tasks: downloading videos from YouTube, extracting transcripts via speech-to-text, extracting on-screen text via OCR, and formatting the results for the audit pipeline.
+
+### Architecture & Design
+
+**Class Structure**:
+```python
+class videoIndexerService:
+    def __init__(self)                              # Initialize and log
+    def download_youtube_video(url, output_path)   # Download from YouTube
+    def extract_video_data(local_path, video_id)   # Extract transcript + OCR
+    def extract_data(raw_insights)                 # Clean and format data
+```
+
+**Data Flow**:
+```
+YouTube URL
+    ↓
+download_youtube_video() → MP4 file stored locally
+    ↓
+extract_video_data() → { "transcript": str, "ocr_text": [str] }
+    ↓
+extract_data() → { "video_transcript": str, "ocr_text": [str] }
+    ↓
+Returns to videoIndexNode in state
+```
+
+### Method 1: `__init__`
+
+**Purpose**: Initialize the service and set up logging
+
+**What it does**:
+- Logs initialization message for debugging
+
+**Key Decision**:
+- Simple initialization; no expensive operations at startup
+- All heavy lifting (model loading) happens in specific methods
+
+---
+
+### Method 2: `download_youtube_video`
+
+**Purpose**: Download video from YouTube URL to local disk
+
+**Parameters**:
+- `url`: YouTube video URL (must contain youtube.com or youtu.be)
+- `output_path`: Where to save MP4 file (default: "temp_video.mp4")
+
+**Process**:
+1. Log the download start with URL
+2. Configure yt-dlp options:
+   - `format: 'best[ext=mp4]'` → Best quality MP4
+   - `outtmpl: output_path` → Save location
+   - `quiet: True` → Suppress verbose logging
+   - `overwrites: True` → Allow overwriting existing files
+3. Create YoutubeDL context and download
+4. Log completion and return file path
+
+**Error Handling**:
+- Catches exceptions and raises with descriptive message
+- Node will catch this exception and log error
+
+**Key Decision**:
+- Simple string output path instead of complex config
+- Fast format selection (best MP4) to keep downloads quick
+
+---
+
+### Method 3: `extract_video_data`
+
+**Purpose**: Extract transcript and OCR text from video file
+
+**Parameters**:
+- `local_path`: Path to downloaded MP4 file
+- `video_id`: Identifier for logging/tracking
+
+**Process - Part 1: Speech-to-Text**:
+1. Log extraction start with video_id
+2. Load Whisper model ("base" size - balance speed vs accuracy)
+3. Transcribe entire audio track
+4. Extract text from result dict
+5. Log transcription completion
+
+**Process - Part 2: OCR Extraction**:
+1. Initialize empty list for OCR results
+2. Open video file with OpenCV
+3. Loop through video frames:
+   - Read frame (ret, frame from VideoCapture)
+   - Skip frames if video ended (if not ret: break)
+   - Process every 10th frame (skip intermediate frames for speed)
+   - Run Tesseract OCR on frame
+   - Add non-empty text to list
+4. Release video resource
+5. Log OCR completion
+
+**Return**:
+```python
+{
+    "transcript": str,      # Full speech transcript
+    "ocr_text": [str]       # List of OCR text from frames
+}
+```
+
+**Error Handling**:
+- Catches all exceptions
+- Logs error with details
+- Raises exception for node to handle
+
+**Key Decisions**:
+
+| Decision | Why | Alternative | Why Not |
+|----------|-----|-------------|---------|
+| Whisper "base" model | Fast, accurate for MVP | "tiny" or "large" | tiny=less accuracy, large=too slow |
+| Sample every 10th frame | Trade accuracy for speed | Every frame or random | Every frame=too slow, random=inconsistent |
+| Single combined return | Simple, matches node expectations | Separate returns | More complex for node to handle |
+| Early return on video end | Stop processing on EOF | Infinite loop on error | Would hang pipeline |
+
+---
+
+### Method 4: `extract_data`
+
+**Purpose**: Clean and format raw extracted data into state-compatible format
+
+**Parameters**:
+- `raw_insights`: Dict from extract_video_data with "transcript" and "ocr_text" keys
+
+**Process**:
+1. Get transcript with default empty string
+2. Get OCR text with default empty list
+3. Reformat keys to match state schema:
+   - "transcript" → "video_transcript"
+   - "ocr_text" → "ocr_text" (unchanged)
+4. Return formatted dict
+
+**Return**:
+```python
+{
+    "video_transcript": str,    # For state
+    "ocr_text": [str]           # For state
+}
+```
+
+**Error Handling**:
+- Catches formatting errors
+- Logs error details
+- Raises exception for node
+
+**Key Decision**:
+- Separate formatting step keeps responsibilities clear
+- Allows future transformation without touching extraction logic
+
+---
+
+### Integration with Nodes
+
+**Called from**: `videoIndexNode` in nodes.py
+
+**Sequence**:
+1. videoIndexNode receives video_url and video_id from state
+2. Calls `download_youtube_video(video_url, "temp_audit_video.mp4")`
+3. Calls `extract_video_data(local_path, video_id)`
+4. Calls `extract_data(raw_insights)`
+5. Returns cleaned data to state
+6. Node deletes temp video file
+
+---
+
+### Error Scenarios
+
+| Scenario | Handling | Result |
+|----------|----------|--------|
+| Invalid YouTube URL | download_youtube_video raises | Node catches, logs, returns error state |
+| Network error during download | yt-dlp exception raised | Node catches, logs "download failed" |
+| Whisper model fails to load | Exception raised | Node catches, returns error state |
+| No audio in video | Whisper returns empty transcript | extract_data returns empty string |
+| No text overlays in video | OCR returns empty results | extract_data returns empty list |
+| Frame reading fails mid-video | OpenCV break on ret=False | Continue gracefully with partial results |
+| Tesseract not installed | pytesseract raises exception | Node catches, logs OCR dependency missing |
+
+---
+
+### Future Enhancements
+
+1. **Configurable frame sampling**: Allow tuning "every 10th frame" parameter
+2. **Audio extraction optimization**: Extract audio first, then transcribe (faster)
+3. **Language detection**: Auto-detect video language before transcribing
+4. **Speaker diarization**: Identify different speakers in transcript
+5. **Handwriting OCR**: Use PaddleOCR for handwritten text
+6. **Parallel processing**: Run Whisper + OCR concurrently instead of sequentially
+7. **Caching**: Cache models to avoid reload on every video
+8. **Progress reporting**: Yield progress during long operations
+
+---
+
 ## Next Steps
-1. Implement transcript extraction module (Whisper integration)
-2. Implement OCR module (Tesseract integration)
-3. Implement vector indexing (FAISS/Chroma setup)
-4. Implement PDF guideline indexing
-5. Build LangGraph nodes for each extraction step
-6. Integrate Mistral embeddings and LLM analysis
-7. Create audit report generator
-8. End-to-end testing with sample videos
+1. ✅ Implement VideoIndexerService (DONE)
+2. Test VideoIndexerService with sample YouTube videos
+3. Create sample compliance PDFs and populate backend/data/
+4. Test index_documents.py to build FAISS vector store
+5. End-to-end test: video → extraction → audit → report
+6. AWS integration for production deployment
 
 ## Key Principles
 - Multimodality first in every design decision
