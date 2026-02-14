@@ -315,13 +315,6 @@ http://16.170.228.66:8501/
 
 6. **Persistence**: Audit history is not persisted. Restarts clear the rate limiting counter and any in-progress requests.
 
-**How to Access the Live Deployment:**
-
-1. Navigate to: `http://16.170.228.66:8501/`
-2. Enter a video URL (currently restricted to YouTube URLs due to code validation; test with direct MP4 URLs by modifying frontend.py if needed)
-3. Click "Check Video" to validate duration
-4. Click "Start Audit" to begin compliance analysis
-5. Results display in 1-3 minutes depending on video content
 
 **Testing Without YouTube Downloads:**
 
