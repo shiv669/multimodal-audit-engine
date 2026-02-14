@@ -246,6 +246,8 @@ Total end-to-end time: 1 to 3 minutes for a 5-minute video depending on content 
 
 ## Deployment Options
 
+### Local or Single-Server Deployment
+
 This system is designed for local or small-team deployment. The CLI and web interfaces run on your local machine or a single server. To scale to production with multiple users accessing simultaneously, consider these options:
 
 1. Wrap the workflow in a FastAPI application to expose it as a REST API. Multiple requests can be queued and processed.
@@ -259,6 +261,76 @@ This system is designed for local or small-team deployment. The CLI and web inte
 5. Implement a task queue (like Celery) to handle long-running audits asynchronously when accessed via REST API.
 
 The architecture supports all these extensions without major changes to existing code.
+
+### AWS EC2 Deployment (Free Tier)
+
+This system has been successfully deployed on AWS EC2 using the free tier instance.
+
+**Live Deployment URL:**
+```
+http://16.170.228.66:8501/
+```
+
+**Deployment Configuration:**
+- Instance: AWS EC2 t2.micro (1GB RAM - free tier eligible)
+- Operating System: Ubuntu 22.04 LTS
+- Storage: 19GB EBS volume
+- Python: 3.12
+- Framework: Streamlit (listening on port 8501)
+
+**Deployment Steps:**
+
+1. Launch an Ubuntu 22.04 LTS EC2 instance (t2.micro for free tier)
+2. Install system dependencies:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install python3.12 python3.12-venv python3-pip git ffmpeg tesseract-ocr
+   ```
+3. Clone the repository and set up virtual environment
+4. Install Python dependencies: `pip install -e .`
+5. Configure environment variables in .env file
+6. Index compliance guidelines: `python backend/scripts/index_documents.py`
+7. Start Streamlit: `streamlit run frontend.py --server.port=8501 --server.address=0.0.0.0`
+8. Open AWS Security Group and add inbound rule for port 8501
+9. Access via public IP at `http://[public-ip]:8501`
+
+**Current Limitations of Live Deployment:**
+
+1. **YouTube Download Restrictions**: YouTube's anti-bot protection currently blocks automated video downloads via yt-dlp on AWS, even with configuration workarounds applied. This is a YouTube security measure, not an application limitation. Workarounds:
+   - Test with non-YouTube videos (e.g., direct MP4 URLs)
+   - Submit YouTube cookies extracted from a logged-in browser session
+   - Use videos that don't have bot protection enabled
+
+2. **Video Input Validation**: The application currently validates that URLs contain "youtube.com" or "youtu.be". To support other video sources, set `local_file_path` to a direct video URL or upload a local file.
+
+3. **Storage Constraints**: Free tier instances have limited storage (19GB). The system uses roughly:
+   - 2GB for Python virtual environment and packages
+   - 500MB for Whisper model (cached after first run)
+   - 300MB for system dependencies
+   - Remaining space for video processing (temporary files are cleaned up after processing)
+
+4. **Performance**: Whisper transcription on t2.micro without GPU is slower (20-90 seconds for 5-minute videos). This is acceptable for free tier but not production.
+
+5. **Concurrent Users**: Single instance can handle one audit at a time. Multiple simultaneous requests queue and process sequentially.
+
+6. **Persistence**: Audit history is not persisted. Restarts clear the rate limiting counter and any in-progress requests.
+
+**How to Access the Live Deployment:**
+
+1. Navigate to: `http://16.170.228.66:8501/`
+2. Enter a video URL (currently restricted to YouTube URLs due to code validation; test with direct MP4 URLs by modifying frontend.py if needed)
+3. Click "Check Video" to validate duration
+4. Click "Start Audit" to begin compliance analysis
+5. Results display in 1-3 minutes depending on video content
+
+**Testing Without YouTube Downloads:**
+
+Use this direct video URL to test the full pipeline without YouTube restrictions:
+```
+https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4
+```
+
+However, note that the current code validates for YouTube URLs. To test with non-YouTube URLs, temporarily modify the validation in frontend.py (line checking for "youtube.com" or "youtu.be").
 
 ## License and Contributing
 

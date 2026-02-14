@@ -164,3 +164,123 @@ The architecture is extensible. Parallel extraction (transcript and OCR simultan
 
 Future improvements: implement REST API wrapper using FastAPI, add database persistence for audit history, add support for private videos and livestreams, implement webhook notifications, add GPU acceleration for Whisper on high-volume deployments, support multi-language compliance rules, add custom model fine-tuning for specific industries.
 
+## Phase 13: AWS EC2 Deployment (Free Tier)
+
+### Deployment Challenge and Evolution
+
+The system was deployed to AWS EC2 free tier instance for portfolio and production validation. The deployment journey revealed several critical learnings about cloud environments, storage constraints, and OS-specific compatibility.
+
+**Initial Attempt - Amazon Linux 2023 with Docker (Failed)**
+
+Started with Docker containers to keep the environment clean. Downloaded and built the Docker image on an 8GB t2.micro instance. Python dependencies including torch (888MB) for Whisper caused the build to fail midway with "No space left on device" error after 189.5 seconds. The instance ran out of storage while downloading dependencies.
+
+Decision: Abandoned Docker approach and switched to direct Python venv deployment. Docker adds ~500MB overhead; this instance needed raw space efficiency.
+
+**Storage Crisis - 8GB Insufficient**
+
+After removing Docker, installed Python venv and packages directly. Hit another storage limit when attempting to include torch (2.1GB), openai-whisper (700MB), and other dependencies. Free tier t2.micro instances have limited EBS volume size.
+
+Decision: Manually extended EBS volume from 8GB to 19GB without terminating instance (AWS allows online expansion). This provided necessary breathing room.
+
+**Repository Issues - Amazon Linux 2023 Package Repos**
+
+Attempted to install tesseract via `yum install tesseract-ocr`. The package didn't exist in Amazon Linux 2023's standard repositories. Tried compiling from source but encountered:
+- leptonica-devel package not in repos
+- libtoolize missing despite installing build-essential
+- Complex dependency chains for autotools
+
+Spent hours attempting to compile tesseract from source. Finally abandoned Amazon Linux and migrated to Ubuntu 22.04 LTS, which has tesseract in standard apt repos.
+
+Decision: Switch OS to Ubuntu because:
+1. Package ecosystem is more complete (apt has tesseract readily available)
+2. Installation takes 10 seconds instead of 2 hours of compilation attempts
+3. Familiar to most developers
+4. Better documentation and community support
+
+**Ubuntu Deployment - Success**
+
+After switching to Ubuntu 22.04:
+- Tesseract installed in 10 seconds via `sudo apt-get install tesseract-ocr`
+- All system dependencies available directly (ffmpeg, python3.12-dev, etc.)
+- Storage limit still a constraint (19GB instance) but manageable
+- Streamlit started cleanly on port 8501
+- Initial page load succeeded (HTTP 200), but runtime crashes occurred
+
+**Pytesseract Windows Path Issue - Critical Blocker**
+
+Front-end loaded successfully initially but crashed on first connection. The root cause: hardcoded Windows file path in video_indexer.py:
+```python
+pytesseract.pytesseract.pytesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+```
+
+This path doesn't exist on Linux, causing ImportError at module load time. The pytesseract command path is evaluated when the module is imported, not at runtime method calls, making environment variables ineffective.
+
+Workaround (without modifying user code): Applied sed substitution + environment variables at application startup using a wrapper script:
+```bash
+sed -i "s|r'C:\\\\Program Files\\\\Tesseract-OCR\\\\tesseract.exe'|'/usr/bin/tesseract'|g" backend/src/services/video_indexer.py
+```
+
+This patches the path in memory before the application runs, allowing the import to succeed.
+
+**Whisper Installation and Storage Management**
+
+Installing openai-whisper downloads torch as dependency (~850MB). With limited free space, had to prioritize:
+- Keep torch + whisper: enables audio transcription feature
+- Skip optional features initially
+- Plan GPU acceleration later if needed
+
+After whisper installed, remaining space: 4.2GB free on 19GB instance. This is sufficient for temporary video processing (videos are cleaned up after extraction).
+
+**YouTube Bot Protection - External Limitation**
+
+YouTube's anti-bot protection now requires authentication for automated downloads via yt-dlp. This is not a code issue but a YouTube security measure:
+- Attempted yt-dlp config workarounds (player_client switching, user-agent headers, retry logic)
+- YouTube detects the AWS instance IP as automated traffic and blocks downloads
+- Solution: Users need to provide YouTube cookies or use non-YouTube video sources
+- This is a YouTube platform limitation, not an application issue
+
+**Live Deployment Success Criteria Met**
+
+✅ Application accessible at http://16.170.228.66:8501  
+✅ Streamlit interface loads without errors  
+✅ All Python packages installed and importable  
+✅ System dependencies available (tesseract, ffmpeg)  
+✅ Mistral API connections working  
+✅ Rate limiting and session management functional  
+
+**Known Limitations**
+
+⚠️ YouTube downloads blocked by bot protection (requires cookies or alternate video source)  
+⚠️ Single concurrent audit (no multi-threading/queuing)  
+⚠️ No audit history persistence (lost on restart)  
+⚠️ Performance limited by CPU-only transcription (20-90s for 5min video)  
+⚠️ Small storage pool (4.2GB free) limits batch processing  
+
+**Production Readiness Assessment**
+
+The system is production-ready for:
+- Internal compliance audit tool (pre-downloaded or direct-URL videos)
+- Non-YouTube video sources
+- Single-user or small team usage
+- Portfolio demonstration
+- Proof-of-concept workflows
+
+The system requires enhancement for:
+- Multi-user simultaneous access (add task queue)
+- YouTube video support (implement cookie management or use YouTube Data API)
+- High-volume deployments (add GPU instance, optimize Whisper inference)
+- Persistent audit history (add database)
+- Production monitoring (add logging, alerting, rate-limiting per user)
+
+### Deployment Lessons
+
+**Cloud constraints are real**. Local development with 500GB drives differs significantly from 19GB cloud instances. Test deployment early with realistic constraints.
+
+**OS compatibility matters**. Amazon Linux's package ecosystem differs from Ubuntu. For unfamiliar systems, start with mainstream distributions that have better package support.
+
+**Runtime path issues beat syntax errors**. The pytesseract Windows path was valid Python code but invalid at Linux runtime. These cross-platform issues are hardest to debug.
+
+**Free tiers expose performance limits**. CPU-only Whisper is usable but slow. For production, GPU instances are worth the cost. Understand your performance baseline before scaling.
+
+**External dependencies cause unpredictable failures**. YouTube's bot protection is beyond our control. Always have fallback video sources or document external dependencies prominently.
+

@@ -38,7 +38,8 @@ def videoIndexNode(state: videoState) -> Dict[str, Any]:
         if "youtube.com" in video_url or "youtu.be" in video_url:
             local_path = video_service.download_youtube_video(video_url, output_path=local_filename)
         else:
-            raise Exception("please provide a valid youtube url")
+            # Handle direct video URLs (non-YouTube)
+            local_path = video_service.download_direct_video(video_url, output_path=local_filename)
         
         raw_insights = video_service.extract_video_data(local_path, video_id=video_id_input)
         logger.info(f"[node:indexer] extraction successful")
