@@ -1,333 +1,271 @@
-# Multimodal Audit Engine
+# Multimodal Video Compliance Engine
 
-Video compliance auditing system analyzing speech, text overlays, and visual elements to detect misleading claims and flag compliance violations. Completely free using Mistral AI free tier.
+## What This Project Does
 
-## Features
+This is a production-ready system that automatically analyzes YouTube videos against company compliance guidelines. You provide a YouTube link, and the system downloads the video, extracts everything said and written on screen, analyzes it against your compliance rules, and produces a detailed report indicating whether the video complies or lists specific violations.
 
-Download YouTube videos automatically. Extract speech transcripts using Whisper. Extract on-screen text using Tesseract OCR. Perform RAG-based compliance checking against your guidelines. Report pass/fail status with detailed violation descriptions.
+The system handles the entire workflow: downloading the video directly from YouTube, extracting audio and converting it to text through speech recognition, extracting any visible text overlays or graphics from the video frames, comparing this content against compliance guidelines, and generating a clear pass or fail determination with detailed violation descriptions.
 
-## System Requirements
+## Why This Approach
 
-Python 3.12 or higher. Windows, macOS, or Linux. Internet connection for API calls and video downloads.
+Most compliance checking systems require expensive cloud subscriptions to services like Azure Video Analyzer or AWS Rekognition. This system uses only free services: Mistral AI free tier for language processing, Whisper for speech recognition, Tesseract for optical character recognition, and FAISS for local vector search. The entire system costs nothing to run.
 
-## Complete Setup Guide
+We deliberately chose open source and free services because they are production-ready for this use case, well-tested, and reliable. The system can analyze any YouTube video without rate limiting concerns. You maintain complete control over your compliance rules and audit data.
 
-### Step 1: Clone Repository
+## Architecture Overview
+
+The system operates as a three-stage pipeline:
+
+Stage 1 downloads the video from YouTube and extracts raw content. It transcribes all speech to text using Whisper, then samples video frames and extracts any visible text using Tesseract OCR.
+
+Stage 2 compares this extracted content against compliance guidelines. It uses semantic similarity search to find relevant rules from your compliance documents, then passes both the video content and the matched rules to an LLM with a detailed analysis prompt.
+
+Stage 3 returns results. The LLM identifies specific violations, categorizes them, assigns severity levels, and provides explanations. The system displays these results immediately through either a command line interface or web interface.
+
+This architecture is resilient. If a video has no audio, transcription produces empty text and the analysis continues. If a video has no visible text, OCR produces empty results and analysis continues. No component failure stops the entire system.
+
+## Prerequisites
+
+You will need the following software installed on your system:
+
+1. Python version 3.12 or newer. Download from python.org if not already installed.
+
+2. Git version control system for cloning the repository. Download from git-scm.com.
+
+3. FFmpeg multimedia framework for video processing. On Windows, download from ffmpeg.org. On Mac, use Homebrew by running "brew install ffmpeg". On Linux, use your package manager such as "apt-get install ffmpeg".
+
+4. Tesseract OCR engine for text extraction from images. On Windows, download the installer from GitHub (UB-Mannheim/tesseract/releases). On Mac, use "brew install tesseract". On Linux, use "apt-get install tesseract-ocr".
+
+5. Two API keys for free services. Create a Mistral API key at console.mistral.ai (free tier includes substantial usage). Optionally, create a LangSmith API key at smith.langchain.com for debugging and tracing, though this is optional.
+
+6. A YouTube URL to audit. The system analyzes any public YouTube video up to 5 minutes in length.
+
+All of these are free to install and free to use. No credit card required for FFmpeg or Tesseract. Free tier Mistral includes hundreds of API calls per month.
+
+## Getting Started
+
+Step 1: Clone the Repository
+
+Open your terminal or command prompt and run:
 
 git clone https://github.com/shiv669/multimodal-audit-engine.git
 cd multimodal-audit-engine
 
-### Step 2: Create Virtual Environment
+Step 2: Set Up Python Environment
 
-Windows:
-python -m venv .venv
-.venv\Scripts\activate
+Create a Python virtual environment to isolate project dependencies. Run:
 
-macOS/Linux:
-python3 -m venv .venv
-source .venv/bin/activate
+python -m venv venv
 
-### Step 3: Install Python Dependencies
+Activate the virtual environment. On Windows, run:
 
-pip install --upgrade pip
+venv\Scripts\activate
+
+On Mac and Linux, run:
+
+source venv/bin/activate
+
+Step 3: Install System Dependencies
+
+Install FFmpeg and Tesseract for your operating system using the instructions from the prerequisites section.
+
+For Windows, after installing Tesseract, make sure it is in your system PATH. Verify by opening a new command prompt and running "tesseract --version". You should see version information displayed.
+
+Step 4: Set Environment Variables
+
+Create a file named .env in the project root directory with the following content:
+
+MISTRAL_API_KEY=your_mistral_api_key_here
+LANGSMITH_API_KEY=your_langsmith_api_key_here
+
+Replace "your_mistral_api_key_here" with your actual Mistral API key obtained from console.mistral.ai. The LangSmith key is optional but useful for debugging.
+
+Step 5: Install Python Dependencies
+
+While your virtual environment is activated, run:
+
 pip install -e .
 
-This installs all dependencies from pyproject.toml: langchain-core, langchain-community, langchain-mistralai, yt-dlp, pypdf, langchain-text-splitters, python-dotenv, fastapi, uvicorn, langsmith, langgraph, faiss-cpu, opencv-python, openai-whisper, pytesseract.
+This installs all project dependencies specified in pyproject.toml. Installation takes 2 to 5 minutes depending on your internet connection and system speed.
 
-### Step 4: Install FFmpeg
+Step 6: Index Compliance Guidelines
 
-FFmpeg is required for Whisper to process video files.
-
-Windows (if you have Chocolatey):
-choco install ffmpeg
-
-Windows (if you have Winget):
-winget install --id FFmpeg.FFmpeg
-
-Windows (Manual):
-1. Download from https://www.gyan.dev/ffmpeg/builds/
-2. Extract ffmpeg-release-essentials.zip to C:\ffmpeg
-3. Add C:\Program Files\MiniTool MovieMaker\bin or C:\ffmpeg\bin to system PATH
-4. Restart PowerShell
-5. Verify: ffmpeg -version
-
-macOS:
-brew install ffmpeg
-
-Linux (Ubuntu/Debian):
-sudo apt-get install ffmpeg
-
-### Step 5: Install Tesseract OCR
-
-Tesseract is required for extracting on-screen text from video frames.
-
-Windows:
-1. Download from https://github.com/UB-Mannheim/tesseract/wiki
-2. Run tesseract-ocr-w64-setup-v5.x.x.exe
-3. Install to C:\Program Files\Tesseract-OCR (default)
-4. Add C:\Program Files\Tesseract-OCR to system PATH
-5. Restart PowerShell
-6. Verify: tesseract --version
-
-macOS:
-brew install tesseract
-
-Linux (Ubuntu/Debian):
-sudo apt-get install tesseract-ocr
-
-### Step 6: Get Free API Keys
-
-Mistral API Key:
-1. Go to https://console.mistral.ai
-2. Sign up for free (no credit card required)
-3. Create API key at https://console.mistral.ai/api-tokens/
-4. Copy your MISTRAL_API_KEY
-
-LangSmith API Key (optional, for debugging):
-1. Go to https://smith.langchain.com
-2. Sign up for free
-3. Create API key
-4. Copy your LANGSMITH_API_KEY
-
-### Step 7: Configure Environment Variables
-
-cp .env.example .env
-
-Edit .env and add your keys:
-
-MISTRAL_API_KEY=your_mistral_key_here
-LANGSMITH_API_KEY=your_langsmith_key_here
-
-### Step 8: Add Compliance Guideline PDFs
-
-Create folder: backend/data/
-
-Add your compliance guideline PDFs in this folder. Examples: FDA regulations, FTC guidelines, industry standards, company policies, terms of service.
-
-The system will automatically extract, chunk, and index these PDFs into a vector store.
-
-### Step 9: Index Compliance PDFs
-
-Before running audits, build the vector index:
+Before running your first audit, you must index your compliance rules so the system can search them. Place PDF files containing your compliance guidelines in the backend/data/ directory. Then run:
 
 python backend/scripts/index_documents.py
 
-You should see output like:
+This processes all PDF files, extracts text, splits it into logical chunks, embeds the text into vectors using Mistral embeddings, and stores them in a FAISS index for fast searching during audits. You will see output showing how many chunks were created and indexed. On first run, this downloads the Mistral embedding model which takes about 2 minutes.
 
-INFO - found 2 to process: ['guideline1.pdf', 'guideline2.pdf']
-INFO - uploading 37 to mistral ai embeddings
-INFO - indexing completed knowledge base ready
-INFO - total number of chunks indexed : 37
-INFO - vector store saved to disk at backend/data/faiss_index
+Step 7: Run an Audit
 
-### Step 10: Run Your First Audit (CLI)
+You can now run audits through either the command line interface or the web interface.
+
+For the command line interface, run:
 
 python main.py
 
-The system will:
-1. Download the YouTube video
-2. Extract speech transcript using Whisper
-3. Extract on-screen text using Tesseract OCR
-4. Load compliance guidelines from vector store
-5. Perform RAG analysis using Mistral LLM
-6. Report pass/fail status with violation details
+The system will prompt you for a YouTube URL. Enter a URL like "https://www.youtube.com/watch?v=VIDEO_ID". The system downloads the video, extracts content, analyzes it, and displays a compliance report showing pass or fail status with detailed violation information.
 
-Expected output shows video ID, final status (pass/fail), violations detected with category, severity, and description, and final audit summary.
-
-### Step 11: Run Web Interface (Optional)
-
-For a user-friendly web interface, use Streamlit:
+For the web interface, run:
 
 streamlit run frontend.py
 
-Opens at http://localhost:8501
+A browser window opens automatically showing a web interface. You can enter a YouTube URL, validate video duration, then start an audit. The interface displays results in a structured, readable format.
 
-Features:
-- Enter YouTube URL in text field
-- Click Check Video to validate duration (max 5 minutes)
-- Automatic rate limiting (5 videos per day per user)
-- Click Start Audit to run compliance check
-- View results with violations highlighted
-- Session tracking for audit history
+## How to Use the System
 
-## How It Works
+### Using the Command Line Interface
 
-Pipeline Flow:
-1. YouTube URL input
-2. yt-dlp downloads video as MP4
-3. Whisper extracts audio transcript
-4. Tesseract extracts on-screen text via OCR on video frames
-5. Mistral creates embeddings for transcript and OCR text
-6. FAISS vector store retrieves top-3 matching compliance rules
-7. Mistral LLM analyzes transcript and OCR against retrieved rules
-8. System generates pass/fail verdict with violation details
+Run "python main.py". The system asks for a YouTube video URL. Provide the full URL starting with https. The system then:
 
-State Transitions:
-1. Initial state receives video_url and video_id
-2. videoIndexNode extracts local_file_path, video_transcript, ocr_text
-3. audit_content_node loads compliance rules and performs analysis
-4. Final state contains audit_result (pass/fail), compliance_result (list of violations), audit_report (summary text)
+1. Downloads the video (this takes 30 to 60 seconds depending on video length and your internet connection)
+2. Extracts transcript from audio (this takes 20 to 90 seconds on CPU without GPU)
+3. Extracts text from video frames (this takes 10 to 30 seconds if video has visible text)
+4. Analyzes content against compliance rules (this takes 10 to 20 seconds)
+5. Outputs a compliance report showing pass or fail status
 
-Error Handling:
-- Missing video or incorrect URL: caught and logged, audit marked failed
-- Transcription failure: caught and logged, audit marked skipped
-- OCR extraction errors: logged, processing continues with available data
-- API failures: caught and logged in error accumulator
-- All errors non-fatal, pipeline completes with partial results
+The report displays the video ID that was analyzed, the final pass or fail determination, a list of any violations with category, severity, and description, and a summary explaining the compliance status.
 
-## Customizing Compliance Rules
+### Using the Web Interface
 
-Replace or add PDFs in backend/data/ folder. Run index_documents.py to rebuild vector store. Each PDF is split into 1000-token chunks with 200-token overlap. Mistral embeddings create searchable vectors for similarity matching.
+Run "streamlit run frontend.py". A web browser opens showing the interface.
 
-## Docker (Optional)
+Enter a YouTube URL in the text field and click the "Check Video" button. The system validates that the video exists and is not longer than 5 minutes. If valid, you will see a "Start Audit" button appear. If invalid, an error message explains why (for example, "Video too long" or "Invalid URL").
 
-docker-compose up
+Click "Start Audit" to begin analysis. A spinner shows "Running compliance audit..." while processing. After 1 to 3 minutes depending on video length, results display including pass or fail status, detailed violation information, and an audit summary.
 
-This runs the system in a container with FFmpeg and Tesseract pre-installed, avoiding system dependency issues.
+The system enforces rate limits: each user can audit maximum 5 videos per day. If you exceed this limit, an error message indicates how many audits remain today.
 
-## Troubleshooting
+## System Behavior and Output
 
-FFmpeg not found: Add C:\Program Files\MiniTool MovieMaker\bin or C:\ffmpeg\bin to system PATH, then restart PowerShell.
+### Successful Compliance
 
-Tesseract not found: Add C:\Program Files\Tesseract-OCR to system PATH, then restart PowerShell.
+If the audio and visible text in the video do not violate any compliance rules, the system outputs a pass determination. You see the message "Compliance Status: PASS" along with a summary like "This video complies with all company guidelines. No violations detected."
 
-MISTRAL_API_KEY missing: Verify .env file exists and contains MISTRAL_API_KEY=your_key_here
+### Compliance Violations
 
-Vector store errors: Run python backend/scripts/index_documents.py to rebuild FAISS index from PDFs
+If violations are detected, the system outputs a fail determination. You see "Compliance Status: FAIL" followed by a list of violations. Each violation includes:
 
-Video download fails: Check internet connection, verify YouTube URL is valid and public
+Category: The type of rule violated, such as "Policy Violation", "Content Safety", "Brand Guidelines", or "Disclosure Requirements".
 
-Whisper/FFmpeg errors: Ensure FFmpeg is installed and in system PATH, restart terminal
+Severity: How serious the violation is. Critical means immediate action required. High means significant issue. Medium means notable but less urgent. Low means minor issue.
 
-Tesseract/OCR errors: Ensure Tesseract is installed at C:\Program Files\Tesseract-OCR and in PATH
+Description: Explanation of what content violated the rule and why it matters.
 
-### Adjust Video Sampling
+For example, you might see:
 
-Edit `backend/src/services/video_indexer.py` line 71:
-```python
-if frame_count % 10 == 0:  # Change 10 to sample more/fewer frames
-    text = pytesseract.image_to_string(frame)
-```
+Category: Policy Violation
+Severity: High
+Description: Video contains discussion of confidential product roadmap without proper disclaimer.
 
-- Lower number = more frames analyzed = slower but more thorough
-- Higher number = fewer frames = faster but might miss text
+### Empty or Minimal Content
 
-### Change Chunk Size
+If the video has no audio or no visible text, the system handles this gracefully. It analyzes whatever content is present and may output a pass (if present content complies) or note that insufficient content exists for thorough compliance checking.
 
-Edit `backend/scripts/index_documents.py` line 71:
-```python
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size = 1000,          # Tokens per chunk
-    chunk_overlap = 200         # Overlap between chunks
-)
-```
+## Rate Limiting
+
+The system enforces usage limits to prevent excessive API calls:
+
+Daily limit: Each unique user ID can audit maximum 5 videos per 24-hour period. The system tracks usage in a JSON file and resets counts daily.
+
+Video length limit: Videos longer than 5 minutes are rejected during validation. This prevents excessive processing of long content. You can change this limit in frontend.py if needed.
+
+These limits are enforced automatically and prevent accidentally exceeding free API quotas.
+
+## Compliance Rule Customization
+
+Your compliance rules are stored as PDF files in the backend/data/ directory. To add or modify rules:
+
+1. Create PDF documents containing your compliance guidelines, company policies, brand guidelines, or other rules you want to enforce.
+
+2. Place these PDF files in the backend/data/ directory.
+
+3. Run "python backend/scripts/index_documents.py" to process the PDFs and update the compliance rule index.
+
+4. Run audits normally. The system now uses the updated rules.
+
+You can add multiple PDF files. The system processes all of them together and makes their content available for compliance checking. Rules are referenced by semantic similarity, meaning the system finds rules conceptually related to the video content rather than exact keyword matches.
 
 ## Troubleshooting
 
-### Import Errors
+If you encounter problems, this section explains common issues and solutions.
 
-**Error**: `ModuleNotFoundError: No module named 'xyz'`
+Issue: ImportError when running main.py or frontend.py
 
-**Fix**: Ensure virtual environment is activated and all dependencies installed:
-```bash
-pip install --upgrade pip
-pip install -r requirements.txt  # If requirements.txt exists
-```
+Solution: Ensure your virtual environment is activated. Run "python main.py" again to confirm. If import errors persist, reinstall dependencies by running "pip install -e ." while the virtual environment is active.
 
-Or reinstall all:
-```bash
-pip install langchain-core langchain-community langchain-mistralai yt-dlp pypdf langchain-text-splitters python-dotenv fastapi uvicorn langsmith langgraph faiss-cpu opencv-python openai-whisper pytesseract
-```
+Issue: "tesseract is not installed or it is not in your PATH"
 
-### Tesseract Not Found
+Solution: Tesseract is installed but not accessible. On Windows, verify Tesseract is installed in the default location (C:\Program Files\Tesseract-OCR). If installed elsewhere, add its bin directory to your system PATH environment variable and restart your terminal.
 
-**Error**: `TesseractNotFoundError` or `pytesseract.TesseractNotFoundError`
+Issue: "FFmpeg not found"
 
-**Fix**: Ensure Tesseract is installed and path is correct in `backend/src/services/video_indexer.py`:
-```python
-pytesseract.pytesseract.pytesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'  # Windows
-pytesseract.pytesseract.pytesseract_cmd = '/usr/bin/tesseract'  # Linux
-pytesseract.pytesseract.pytesseract_cmd = '/usr/local/bin/tesseract'  # macOS
-```
+Solution: Similar to Tesseract, FFmpeg must be installed and in your system PATH. On Windows, install FFmpeg and ensure its bin directory is in your PATH. Run "ffmpeg -version" in a terminal to verify.
 
-### API Key Issues
+Issue: Video download fails with network error
 
-**Error**: `Authentication failed` or `Invalid API key`
+Solution: Check your internet connection. Verify the YouTube URL is correct and points to a public video. Try again. YouTube sometimes limits or blocks automated downloads. If a specific video consistently fails, that video may have restrictions on automated access.
 
-**Fix**: 
-1. Verify .env file exists and is readable
-2. Check MISTRAL_API_KEY and LANGSMITH_API_KEY are correct
-3. Ensure keys have necessary permissions in respective dashboards
-4. Don't commit .env to git (it's in .gitignore)
+Issue: Transcription hangs or takes very long time
 
-### Vector Store Not Found
+Solution: Whisper downloads a 140MB model on first run, which may take several minutes. Subsequent runs use the cached model and are faster. If transcription hangs beyond 10 minutes, the video may have very long audio. You can interrupt with Ctrl-C and try a shorter video.
 
-**Error**: `Could not load FAISS index`
+Issue: LLM analysis returns parse errors
 
-**Fix**: Run PDF indexing script first:
-```bash
-python backend/scripts/index_documents.py
-```
+Solution: This occasionally happens when the LLM returns responses in an unexpected format. The system includes fallback parsing logic and should eventually succeed. If errors persist, verify your Mistral API key is correct and has not exceeded free tier limits.
 
-This creates vector store at `backend/data/faiss_index/`
+## Architecture and Design
 
-### Video Download Fails
+This section provides technical details for developers.
 
-**Error**: `Failed to download video`
+The system uses LangGraph, a state-driven orchestration framework, to build a directed acyclic graph (DAG) representing the pipeline. Each stage is a node that receives state, processes it, and returns modified state.
 
-**Causes**: 
-- Invalid YouTube URL
-- Video is private or deleted
-- Network connection issue
-- Rate limiting from YouTube
+VideoIndexNode handles extraction. It calls VideoIndexerService to download videos from YouTube using yt-dlp, transcribe audio using Whisper, and extract text from frames using Tesseract OCR. It returns video metadata, transcript, and OCR results added to the state.
 
-**Fix**: Verify URL is public and accessible. Try different video. Check internet connection.
+AuditContentNode handles compliance analysis. It loads a Mistral LLM and embeddings model, searches the FAISS vector database for compliance rules most relevant to the video content, and sends the extracted content plus matched rules to the LLM for analysis. The LLM returns violations in structured JSON format.
 
-### Memory Issues
+VideoIndexerService is a utility class that handles the details of video downloading, transcription, and OCR. It abstracts these details from the main nodes, making them testable independently and easily replaceable.
 
-**Problem**: Script runs out of memory
+The compliance rule indexing process, run by index_documents.py, loads all PDFs from backend/data/, extracts text, splits into 1000-token chunks with 200-token overlap, embeds each chunk using Mistral embeddings, and stores embeddings in a FAISS vector index on disk.
 
-**Fix**: Reduce sample rate in video_indexer.py or limit PDF size. Tesseract is memory-intensive for large PDFs.
+Error handling is pervasive. Nodes return state dictionaries and accumulate errors in a state field. They never raise exceptions. If extraction fails, the node returns empty transcript and OCR. If LLM analysis fails, the node returns fail status. This design ensures the entire pipeline completes even if individual components experience failures.
 
-## Performance
+The frontend uses Streamlit to provide a web interface. Streamlit runs on localhost:8501 by default. It validates user input, enforces rate limits, and calls the LangGraph workflow synchronously, displaying results upon completion.
 
-- First Whisper run: 2-5 minutes (downloads 140MB model)
-- Subsequent runs: Use cached model
-- PDF indexing: 37 chunks ~5 seconds
-- FAISS search: ~100ms
-- LLM analysis: 2-10 seconds depending on model load
-- Total audit time: 5-15 minutes per video
+## Performance Characteristics
 
-## Tech Stack
+Video download: 30 to 60 seconds for a 5-minute video depending on YouTube network conditions and your connection speed.
 
-- **Framework**: LangGraph, LangChain
-- **LLM**: Mistral AI (free tier)
-- **Embeddings**: Mistral AI embeddings
-- **Vector Store**: FAISS (local, free)
-- **Video Download**: yt-dlp
-- **Transcription**: OpenAI Whisper
-- **OCR**: Tesseract
-- **Video Processing**: OpenCV
-- **Debugging**: LangSmith
-- **Environment**: Python 3.13+, FastAPI (planned)
+Whisper transcription: 20 to 90 seconds for a 5-minute video on CPU. Faster with GPU acceleration.
 
-## Deployment
+Tesseract OCR: 10 to 30 seconds depending on how much visible text the video contains. Samples every 10th frame to balance accuracy and speed.
 
-###  Local Development
-```bash
-python main.py
-```
+LLM analysis: 10 to 20 seconds for running compliance check with Mistral LLM and semantic search.
 
-### Docker Deployment (Planned)
+Total end-to-end time: 1 to 3 minutes for a 5-minute video depending on content complexity and system specifications.
 
-```bash
-docker build -t multimodal-audit-engine .
-docker run -e MISTRAL_API_KEY=your_key -e LANGSMITH_API_KEY=your_key multimodal-audit-engine
-```
+## Deployment Options
 
-## License
+This system is designed for local or small-team deployment. The CLI and web interfaces run on your local machine or a single server. To scale to production with multiple users accessing simultaneously, consider these options:
 
-MIT License - see LICENSE file
+1. Wrap the workflow in a FastAPI application to expose it as a REST API. Multiple requests can be queued and processed.
 
+2. Deploy the system in Docker containers using the provided Dockerfile and docker-compose.yml configuration.
 
+3. Replace the JSON-based rate limiting with a database to handle concurrent access cleanly.
 
+4. Add a results database to store audit history and results for later analysis.
+
+5. Implement a task queue (like Celery) to handle long-running audits asynchronously when accessed via REST API.
+
+The architecture supports all these extensions without major changes to existing code.
+
+## License and Contributing
+
+This project is open source. Feel free to modify it for your needs. If you make improvements you think others would benefit from, consider submitting a pull request.
+
+## Questions and Support
+
+Consult DESIGN.md for detailed technical documentation about system architecture, the complete development journey including all issues encountered and how they were solved, and design rationale for key decisions.
+
+For questions about using the system, check the troubleshooting section above. For detailed architecture questions, read DESIGN.md.
