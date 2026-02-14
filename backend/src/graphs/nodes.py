@@ -11,7 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from backend.src.graphs.state import complianceIssue, videoState
-from backend.src.services.video_indexer import videoIndexerService
+from backend.src.services.video_indexer import VideoIndexerService
 
 logger = logging.getLogger("multimodal-audit-engine")
 logging.basicConfig(level=logging.INFO)
