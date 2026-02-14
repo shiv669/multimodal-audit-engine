@@ -8,7 +8,7 @@ Download YouTube videos automatically. Extract speech transcripts using Whisper.
 
 ## System Requirements
 
-Python 3.13 or higher. Windows, macOS, or Linux. Internet connection for API calls and video downloads.
+Python 3.12 or higher. Windows, macOS, or Linux. Internet connection for API calls and video downloads.
 
 ## Complete Setup Guide
 
@@ -120,7 +120,7 @@ INFO - indexing completed knowledge base ready
 INFO - total number of chunks indexed : 37
 INFO - vector store saved to disk at backend/data/faiss_index
 
-### Step 10: Run Your First Audit
+### Step 10: Run Your First Audit (CLI)
 
 python main.py
 
@@ -133,6 +133,22 @@ The system will:
 6. Report pass/fail status with violation details
 
 Expected output shows video ID, final status (pass/fail), violations detected with category, severity, and description, and final audit summary.
+
+### Step 11: Run Web Interface (Optional)
+
+For a user-friendly web interface, use Streamlit:
+
+streamlit run frontend.py
+
+Opens at http://localhost:8501
+
+Features:
+- Enter YouTube URL in text field
+- Click Check Video to validate duration (max 5 minutes)
+- Automatic rate limiting (5 videos per day per user)
+- Click Start Audit to run compliance check
+- View results with violations highlighted
+- Session tracking for audit history
 
 ## How It Works
 

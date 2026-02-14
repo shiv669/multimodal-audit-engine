@@ -27,9 +27,39 @@ Issue 5: f-string Double-Braces Syntax Error
 
 State-driven LangGraph pipeline: videoIndexNode extracts transcript and OCR, audit_content_node performs RAG analysis against compliance PDF rules using Mistral embeddings and FAISS vector search, returns pass/fail status with detailed violation descriptions.
 
+## Frontend Implementation (Streamlit)
+
+Web interface built with Streamlit for user-friendly video submission and audit results visualization.
+
+Features:
+- Video URL text input for YouTube links
+- Duration validation (maximum 5 minutes)
+- Rate limiting via JSON file tracking (5 videos per user per day)
+- Start Audit button triggers complete pipeline
+- Results display shows pass/fail status with detailed violations
+- Session-based tracking via User-ID
+
+UI Flow:
+1. User enters YouTube URL
+2. User clicks Check Video button
+3. System validates duration (fetches metadata via yt-dlp)
+4. If valid duration, rate limit checked (if limit exceeded, error shown)
+5. Start Audit button appears
+6. User clicks Start Audit
+7. Audit runs (video download, transcription, OCR, LLM analysis)
+8. Results displayed with violations or pass status
+
+Key Code Patterns:
+- Streamlit session_state for button state persistence (video_checked, ready_to_audit)
+- Buttons placed outside nested blocks so they persist across page reruns
+- Rate limit stored as JSON in backend/data/rate_limit.json with user_id, date, count
+- Spinner shows "Running compliance audit..." during processing
+- Debug messages added for troubleshooting
+
 ## Deployment
 
-Run production: python main.py
+CLI: python main.py
+Web UI: streamlit run frontend.py (opens at http://localhost:8501)
 Index compliance PDFs first: python backend/scripts/index_documents.py
 - Parses JSON response (handles markdown wrapping)
 - Returns structured violations + report

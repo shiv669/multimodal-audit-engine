@@ -3,7 +3,7 @@ name = "multimodal-audit-engine"
 version = "0.1.0"
 description = "Video content compliance auditing system using multimodal AI analysis"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "boto3>=1.42.0",
     "langchain-core>=1.2.0",
