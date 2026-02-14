@@ -1,53 +1,36 @@
-# Multimodal Audit Engine - Design & Development Journey
+# Multimodal Audit Engine - Final Debugging Journey
 
-## Project Vision
+## Production Launch - System Fully Operational
 
-Build a free-tier video compliance auditing system that analyzes speech, on-screen text, and visual elements to detect misleading claims and compliance violations. Use open-source tools and Mistral AI's free API tier to minimize operational costs while maintaining production-quality analysis.
+Complete multimodal video compliance auditing system. Downloads YouTube videos, extracts speech and text, performs RAG-based compliance checking against guidelines using Mistral AI free tier and open-source tools (Whisper, Tesseract, FAISS).
 
-## Phase 1: Architecture & State Design
+## Critical Issues Fixed - Complete Journey
 
-### Initial Challenge
-Traditional video analysis tools require expensive cloud services (Azure Video Indexer, AWS Rekognition). Goal: build equivalent using free alternatives.
+Issue 1: Missing System Dependencies
+- FFmpeg required for Whisper video decoding. Initial WinError 2 misleading error message. Found MiniTool MovieMaker installed FFmpeg at C:\Program Files\MiniTool MovieMaker\bin. Added to PATH.
+- Tesseract OCR also required for frame extraction. Initially pytesseract couldn't find it despite correct installation path. Fixed by adding C:\Program Files\Tesseract-OCR to system PATH.
 
-### Solution: State-Driven Architecture
-Adopted LangGraph's StateGraph pattern with TypedDict for type safety. Defined two core types:
+Issue 2: Package Installation Problems
+- pyproject.toml missing opencv-python, pytesseract, faiss-cpu, langgraph dependencies. Added all required packages.
+- Virtual environment wasn't activated properly. Resolved by explicitly activating venv before pip install.
 
-**videoState**: Complete pipeline state tracking input, extraction, analysis, output, and errors
-- Input: video_url, video_id
-- Extraction: local_file_path, video_metadata, video_transcript, ocr_text
-- Analysis: compliance_result (list of violations)
-- Output: audit_result (pass/fail), audit_report (summary)
-- Errors: List of error messages with Annotated[List, operator.add] for accumulation
+Issue 3: yt-dlp Output Format
+- yt-dlp outtmpl configuration stored file without .mp4 extension despite passing 'temp_audit_video.mp4'. Changed from 'outtmpl': output_path.replace('.mp4', '') to 'outtmpl': output_path. Fixed file not found error during Whisper transcription.
 
-**complianceIssue**: Individual violation record
-- category, description, severity, timestamp
+Issue 4: FAISS Vector Store Deserialization
+- Added allow_dangerous_deserialization=True flag to FAISS.load_local() call since vector store is trusted (created locally by system).
 
-### Why This Design?
-- Type safety prevents runtime errors
-- Error accumulation preserves full error context
-- State transitions explicit and traceable
-- LangSmith integration gets automatic logging
+Issue 5: f-string Double-Braces Syntax Error  
+- Line 122 had {state.get('video_metadata',{{}})} causing unhashable type error. Double braces meant for literal braces but failed in f-string. Changed to single braces {state.get('video_metadata',{})}.
 
-## Phase 2: Core Pipeline Components
+## System Architecture
 
-### Node 1: videoIndexNode
-Responsibility: Extract raw data from video
-- Downloads YouTube video using yt-dlp
-- Validates URL format before attempting download
-- Creates temporary file for processing
-- Extracts audio stream via Whisper transcription
-- Extracts key frames and runs OCR via Tesseract
-- Cleans up temporary file after extraction
-- Returns structured data or error without crashing
+State-driven LangGraph pipeline: videoIndexNode extracts transcript and OCR, audit_content_node performs RAG analysis against compliance PDF rules using Mistral embeddings and FAISS vector search, returns pass/fail status with detailed violation descriptions.
 
-### Node 2: audit_content_node
-Responsibility: Perform compliance checking
-- Checks transcript exists; return early if missing
-- Initializes Mistral LLM (mistral-small) and embeddings
-- Loads persisted FAISS vector store from disk
-- Combines transcript + OCR into query
-- Retrieves top-3 similar compliance rules via similarity_search
-- Sends query + rules to LLM for analysis
+## Deployment
+
+Run production: python main.py
+Index compliance PDFs first: python backend/scripts/index_documents.py
 - Parses JSON response (handles markdown wrapping)
 - Returns structured violations + report
 

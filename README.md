@@ -1,231 +1,189 @@
 # Multimodal Audit Engine
 
-A video compliance auditing system that analyzes speech, text overlays, and visual elements to detect misleading claims and flag violations against compliance guidelines.
+Video compliance auditing system analyzing speech, text overlays, and visual elements to detect misleading claims and flag compliance violations. Completely free using Mistral AI free tier.
 
-## Quick Summary
+## Features
 
-- Downloads YouTube videos automatically
-- Extracts speech transcripts using Whisper
-- Extracts on-screen text using Tesseract OCR
-- Performs RAG-based compliance checking against your guidelines
-- Reports pass/fail status with detailed violation descriptions
-- Completely free (Mistral AI free tier + open-source tools)
+Download YouTube videos automatically. Extract speech transcripts using Whisper. Extract on-screen text using Tesseract OCR. Perform RAG-based compliance checking against your guidelines. Report pass/fail status with detailed violation descriptions.
 
-## Installation & Setup
+## System Requirements
 
-### Prerequisites
+Python 3.13 or higher. Windows, macOS, or Linux. Internet connection for API calls and video downloads.
 
-- Python 3.13 or higher
-- Windows, macOS, or Linux
-- Internet connection for API calls and video downloads
-- Tesseract OCR installed on your system
+## Complete Setup Guide
 
 ### Step 1: Clone Repository
 
-```bash
 git clone https://github.com/shiv669/multimodal-audit-engine.git
 cd multimodal-audit-engine
-```
 
-### Step 2: Create Python Virtual Environment
+### Step 2: Create Virtual Environment
 
-```bash
+Windows:
 python -m venv .venv
-
-# On Windows
 .venv\Scripts\activate
 
-# On macOS/Linux
+macOS/Linux:
+python3 -m venv .venv
 source .venv/bin/activate
-```
 
-### Step 3: Install Dependencies
+### Step 3: Install Python Dependencies
 
-```bash
 pip install --upgrade pip
-pip install langchain-core langchain-community langchain-mistralai yt-dlp pypdf langchain-text-splitters python-dotenv fastapi uvicorn langsmith langgraph faiss-cpu opencv-python openai-whisper pytesseract
-```
+pip install -e .
 
-### Step 4: Install Tesseract OCR
+This installs all dependencies from pyproject.toml: langchain-core, langchain-community, langchain-mistralai, yt-dlp, pypdf, langchain-text-splitters, python-dotenv, fastapi, uvicorn, langsmith, langgraph, faiss-cpu, opencv-python, openai-whisper, pytesseract.
 
-**Windows:**
-1. Download installer from: https://github.com/UB-Mannheim/tesseract/wiki
-2. Run installer (keep default path: C:\Program Files\Tesseract-OCR)
-3. Verify installation: Open PowerShell and run `tesseract --version`
+### Step 4: Install FFmpeg
 
-**macOS:**
-```bash
+FFmpeg is required for Whisper to process video files.
+
+Windows (if you have Chocolatey):
+choco install ffmpeg
+
+Windows (if you have Winget):
+winget install --id FFmpeg.FFmpeg
+
+Windows (Manual):
+1. Download from https://www.gyan.dev/ffmpeg/builds/
+2. Extract ffmpeg-release-essentials.zip to C:\ffmpeg
+3. Add C:\Program Files\MiniTool MovieMaker\bin or C:\ffmpeg\bin to system PATH
+4. Restart PowerShell
+5. Verify: ffmpeg -version
+
+macOS:
+brew install ffmpeg
+
+Linux (Ubuntu/Debian):
+sudo apt-get install ffmpeg
+
+### Step 5: Install Tesseract OCR
+
+Tesseract is required for extracting on-screen text from video frames.
+
+Windows:
+1. Download from https://github.com/UB-Mannheim/tesseract/wiki
+2. Run tesseract-ocr-w64-setup-v5.x.x.exe
+3. Install to C:\Program Files\Tesseract-OCR (default)
+4. Add C:\Program Files\Tesseract-OCR to system PATH
+5. Restart PowerShell
+6. Verify: tesseract --version
+
+macOS:
 brew install tesseract
-```
 
-**Linux (Ubuntu/Debian):**
-```bash
+Linux (Ubuntu/Debian):
 sudo apt-get install tesseract-ocr
-```
 
-### Step 5: Get Free API Keys
+### Step 6: Get Free API Keys
 
-**Mistral API Key:**
+Mistral API Key:
 1. Go to https://console.mistral.ai
-2. Sign up for free account (no credit card required)
-3. Create API key
+2. Sign up for free (no credit card required)
+3. Create API key at https://console.mistral.ai/api-tokens/
 4. Copy your MISTRAL_API_KEY
 
-**LangSmith API Key:**
+LangSmith API Key (optional, for debugging):
 1. Go to https://smith.langchain.com
-2. Sign up for free account
+2. Sign up for free
 3. Create API key
 4. Copy your LANGSMITH_API_KEY
 
-### Step 6: Create .env File
+### Step 7: Configure Environment Variables
 
-```bash
 cp .env.example .env
-```
 
-Edit `.env` and add your keys:
-```
+Edit .env and add your keys:
+
 MISTRAL_API_KEY=your_mistral_key_here
 LANGSMITH_API_KEY=your_langsmith_key_here
-```
 
-### Step 7: Add Compliance PDFs
+### Step 8: Add Compliance Guideline PDFs
 
-1. Create folder: `backend/data/`
-2. Add your compliance guideline PDFs here
-3. Examples: FDA regulations, FTC standards, industry guidelines, terms of service
+Create folder: backend/data/
 
-The system will automatically extract, chunk, and index these PDFs.
+Add your compliance guideline PDFs in this folder. Examples: FDA regulations, FTC guidelines, industry standards, company policies, terms of service.
 
-### Step 8: Build Vector Index
+The system will automatically extract, chunk, and index these PDFs into a vector store.
 
-Before running audits, index your compliance PDFs:
+### Step 9: Index Compliance PDFs
 
-```bash
+Before running audits, build the vector index:
+
 python backend/scripts/index_documents.py
-```
 
-Expected output:
-```
-INFO - MISTRAL_API_KEY is set
-INFO - LANGSMITH_API_KEY is set
+You should see output like:
+
 INFO - found 2 to process: ['guideline1.pdf', 'guideline2.pdf']
 INFO - uploading 37 to mistral ai embeddings
-INFO - ============================================================
-INFO - indexing completed knowledge base ready !
+INFO - indexing completed knowledge base ready
 INFO - total number of chunks indexed : 37
 INFO - vector store saved to disk at backend/data/faiss_index
-```
 
-### Step 9: Run Your First Audit
+### Step 10: Run Your First Audit
 
-```bash
 python main.py
-```
 
-Expected output:
-```
-2026-02-14 12:00:00 - INFO - starting the audit report for: <session-id>
-initialsing the workflow
-input payload : {
-  "video_url": "https://youtu.be/...",
-  "video_id": "vid_xxxxxxxx",
-  ...
-}
+The system will:
+1. Download the YouTube video
+2. Extract speech transcript using Whisper
+3. Extract on-screen text using Tesseract OCR
+4. Load compliance guidelines from vector store
+5. Perform RAG analysis using Mistral LLM
+6. Report pass/fail status with violation details
 
-workflow execution is completed
-
-compliance audit report
-video id: vid_xxxxxxxx
-final status: pass/fail
-
-violations detected
-- [critical] claim validation: Description of violation
-- [high] medical claim: Another violation found
-...
-
-final summary
-Found X compliance violations. Review before publishing.
-```
+Expected output shows video ID, final status (pass/fail), violations detected with category, severity, and description, and final audit summary.
 
 ## How It Works
 
-### Pipeline Architecture
+Pipeline Flow:
+1. YouTube URL input
+2. yt-dlp downloads video as MP4
+3. Whisper extracts audio transcript
+4. Tesseract extracts on-screen text via OCR on video frames
+5. Mistral creates embeddings for transcript and OCR text
+6. FAISS vector store retrieves top-3 matching compliance rules
+7. Mistral LLM analyzes transcript and OCR against retrieved rules
+8. System generates pass/fail verdict with violation details
 
-```
-YouTube URL
-    ↓
-yt-dlp downloads video
-    ↓
-Whisper extracts audio transcript
-    ↓
-Tesseract extracts on-screen text (OCR)
-    ↓
-Mistral creates embeddings for text
-    ↓
-FAISS vector store retrieves similar compliance rules
-    ↓
-Mistral LLM analyzes transcript against rules
-    ↓
-System reports pass/fail with violation details
-```
+State Transitions:
+1. Initial state receives video_url and video_id
+2. videoIndexNode extracts local_file_path, video_transcript, ocr_text
+3. audit_content_node loads compliance rules and performs analysis
+4. Final state contains audit_result (pass/fail), compliance_result (list of violations), audit_report (summary text)
 
-### State Flow
+Error Handling:
+- Missing video or incorrect URL: caught and logged, audit marked failed
+- Transcription failure: caught and logged, audit marked skipped
+- OCR extraction errors: logged, processing continues with available data
+- API failures: caught and logged in error accumulator
+- All errors non-fatal, pipeline completes with partial results
 
-1. **Initial State**: video_url and video_id provided
-2. **Extraction Phase**: videoIndexNode downloads, transcribes, extracts OCR
-3. **Analysis Phase**: audit_content_node loads compliance rules, performs RAG analysis
-4. **Output Phase**: Final state includes audit_result (pass/fail), compliance_result (violations), audit_report (summary)
+## Customizing Compliance Rules
 
-### Error Handling
+Replace or add PDFs in backend/data/ folder. Run index_documents.py to rebuild vector store. Each PDF is split into 1000-token chunks with 200-token overlap. Mistral embeddings create searchable vectors for similarity matching.
 
-- Missing video: Caught and logged, audit marked as failed
-- No transcript: Caught and logged, audit marked as skipped
-- OCR extraction errors: Logged, processing continues with partial results
-- API failures: Caught and reported, errors accumulate in state
-- All errors non-fatal; pipeline completes with results
+## Docker (Optional)
 
-## Project Structure
+docker-compose up
 
-```
-multimodal-audit-engine/
-├── main.py                          # Entry point, orchestrates pipeline
-├── pyproject.toml                   # Python dependencies
-├── .env.example                     # Template for environment variables
-├── README.md                        # This file
-├── DESIGN.md                        # Detailed architecture documentation
-│
-├── backend/
-│   ├── data/                        # Compliance PDFs and vector index
-│   │   ├── your_guidelines.pdf      # Add your PDFs here
-│   │   └── faiss_index/             # Auto-generated vector store
-│   │
-│   ├── scripts/
-│   │   └── index_documents.py       # PDF indexing script
-│   │
-│   └── src/
-│       ├── graphs/
-│       │   ├── state.py             # videoState and complianceIssue TypedDicts
-│       │   ├── nodes.py             # videoIndexNode and audit_content_node
-│       │   └── workflow.py          # LangGraph DAG orchestration
-│       │
-│       └── services/
-│           └── video_indexer.py     # VideoIndexerService class
-│
-└── tests/                           # Test suite (planned)
-```
+This runs the system in a container with FFmpeg and Tesseract pre-installed, avoiding system dependency issues.
 
-## Configuration
+## Troubleshooting
 
-### Modify Video URL
+FFmpeg not found: Add C:\Program Files\MiniTool MovieMaker\bin or C:\ffmpeg\bin to system PATH, then restart PowerShell.
 
-Edit `main.py` line 31:
-```python
-initial_inputs = {
-    "video_url" : "https://youtu.be/YOUR_VIDEO_ID",  # Change this
-    ...
-}
-```
+Tesseract not found: Add C:\Program Files\Tesseract-OCR to system PATH, then restart PowerShell.
+
+MISTRAL_API_KEY missing: Verify .env file exists and contains MISTRAL_API_KEY=your_key_here
+
+Vector store errors: Run python backend/scripts/index_documents.py to rebuild FAISS index from PDFs
+
+Video download fails: Check internet connection, verify YouTube URL is valid and public
+
+Whisper/FFmpeg errors: Ensure FFmpeg is installed and in system PATH, restart terminal
+
+Tesseract/OCR errors: Ensure Tesseract is installed at C:\Program Files\Tesseract-OCR and in PATH
 
 ### Adjust Video Sampling
 
@@ -351,35 +309,9 @@ docker build -t multimodal-audit-engine .
 docker run -e MISTRAL_API_KEY=your_key -e LANGSMITH_API_KEY=your_key multimodal-audit-engine
 ```
 
-## Contributing
-
-Contributions welcome! Areas for improvement:
-- API endpoint instead of CLI
-- Batch processing multiple videos
-- Custom LLM fine-tuning
-- Visual anomaly detection
-- Multi-language support
-- GPU acceleration
-
 ## License
 
 MIT License - see LICENSE file
 
-## Support
 
-For issues, bugs, or questions:
-1. Check DESIGN.md for architecture details
-2. Review error messages in logs
-3. Check troubleshooting section above
-4. Open GitHub issue with error stack trace
 
-## Roadmap
-
-- Week 1: Dockerize application
-- Week 2: REST API with FastAPI
-- Week 3: Batch processing and job queue
-- Week 4: Webhook notifications
-- Month 2: AWS Lambda deployment
-- Month 3: GPU acceleration with CUDA
-- Month 4: Multi-language support
-- Month 6: Visual anomaly detection

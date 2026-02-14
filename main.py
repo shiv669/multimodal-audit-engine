@@ -31,7 +31,13 @@ def run_cli_simulation():
     initial_inputs = {
         "video_url" : "https://youtu.be/dT7S75eYhcQ",
         "video_id" : f"vid_{session_id[:8]}",
+        "local_file_path" : None,
+        "video_metadata" : {},
+        "video_transcript" : "",
+        "ocr_text" : [],
         "compliance_result" : [],
+        "audit_result" : "",
+        "audit_report" : "",
         "errors" : []
     }
 

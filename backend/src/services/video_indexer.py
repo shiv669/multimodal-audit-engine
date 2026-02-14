@@ -24,6 +24,8 @@ class videoIndexerService:
         '''
         downloads the youtube video locally on the device
         '''
+
+        output_path = os.path.abspath(output_path)
         logger.info(f"downloading the youtube video {url}")
 
         ydl_opts = {
@@ -51,6 +53,15 @@ class videoIndexerService:
         '''
         logger.info(f"extracting data from {video_id}")
         try:
+            local_path = os.path.abspath(local_path)
+            logger.info(f"resolved path: {local_path}")
+            if not os.path.exists(local_path):
+                raise Exception(f"file not found at: {local_path}")
+            
+            local_path = local_path.replace('\\','/')
+            import time
+            time.sleep(4)
+            logger.info("loading whisper model")
             logger.info("loading whisper model")
             model = whisper.load_model("base")
 

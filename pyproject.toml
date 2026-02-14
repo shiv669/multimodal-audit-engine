@@ -20,4 +20,9 @@ dependencies = [
     "langsmith>=0.7.0",
     "opentelemetry-sdk>=1.39.0",
     "opentelemetry-instrumentation-fastapi>=0.46b0",
+    "openai-whisper>=20240626",
+    "langgraph>=0.1.0",
+    "faiss-cpu>=1.8.0",
+    "opencv-python>=4.8.0",
+    "pytesseract>=0.3.10",
 ]

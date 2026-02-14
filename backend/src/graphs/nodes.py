@@ -11,7 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from backend.src.graphs.state import complianceIssue, videoState
-from backend.src.services.video_indexer import VideoIndexerService
+from backend.src.services.video_indexer import videoIndexerService
 
 logger = logging.getLogger("multimodal-audit-engine")
 logging.basicConfig(level=logging.INFO)
@@ -30,11 +30,11 @@ def videoIndexNode(state: videoState) -> Dict[str, Any]:
 
     logger.info(f"[node:indexer] processing : {video_url}")
 
-    local_filename = "temp_audit_video.mp4"
+    local_filename = os.path.abspath("temp_audit_video.mp4")
 
     try:
 
-        video_service = VideoIndexerService()
+        video_service = videoIndexerService()
         if "youtube.com" in video_url or "youtu.be" in video_url:
             local_path = video_service.download_youtube_video(video_url, output_path=local_filename)
         else:
@@ -82,7 +82,7 @@ def audit_content_node(state: videoState) -> Dict[str, Any]:
     embeddings = MistralAIEmbeddings(api_key=os.getenv("MISTRAL_API_KEY"))
 
     try:
-        vector_store = FAISS.load_local("backend/data/faiss_index", embeddings)
+        vector_store = FAISS.load_local("backend/data/faiss_index", embeddings, allow_dangerous_deserialization=True)
         logger.info("loader vector store from disk")
     except Exception as e:
         logger.warning(f"vector store not found, creating empty: {str(e)}")
@@ -119,7 +119,7 @@ def audit_content_node(state: videoState) -> Dict[str, Any]:
             """
 
     user_message = f"""
-            VIDEO_METADATA :{state.get('video_metadata',{{}})}
+            VIDEO_METADATA :{state.get('video_metadata',{})}
             TRANSCRIPT : {transcript}
             OCR: {ocr_text}
             """
