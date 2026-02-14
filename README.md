@@ -268,7 +268,7 @@ This system has been successfully deployed on AWS EC2 using the free tier instan
 
 **Live Deployment URL:**
 ```
-http://16.170.228.66:8501/
+will be shared soon...
 ```
 
 **Deployment Configuration:**
