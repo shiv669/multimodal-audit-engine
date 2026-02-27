@@ -10,7 +10,7 @@ The system handles the entire workflow: downloading the video directly from YouT
 
 Most compliance checking systems require expensive cloud subscriptions to services like Azure Video Analyzer or AWS Rekognition. This system uses only free services: Mistral AI free tier for language processing, Whisper for speech recognition, Tesseract for optical character recognition, and FAISS for local vector search. The entire system costs nothing to run.
 
-We deliberately chose open source and free services because they are production-ready for this use case, well-tested, and reliable. The system can analyze any YouTube video without rate limiting concerns. You maintain complete control over your compliance rules and audit data.
+I deliberately chose open source and free services because they are production-ready for this use case, well-tested, and reliable. The system can analyze any YouTube video without rate limiting concerns. You maintain complete control over your compliance rules and audit data.
 
 ## Architecture Overview
 
